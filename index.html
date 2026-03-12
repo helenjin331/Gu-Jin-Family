@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Family Finance | 家庭财务管理</title>
+  <link rel="stylesheet" href="style.css?v=20260312h">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="logo">
+        <span class="logo-icon">GJ</span>
+        <h1>Family Finance</h1>
+      </div>
+      <nav class="nav-menu">
+        <button class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">📊</span>
+          <span>总览</span>
+        </button>
+        <button class="nav-item" data-page="add">
+          <span class="nav-icon">✏️</span>
+          <span>记一笔</span>
+        </button>
+        <button class="nav-item" data-page="list">
+          <span class="nav-icon">📋</span>
+          <span>账单明细</span>
+        </button>
+        <button class="nav-item" data-page="stats">
+          <span class="nav-icon">📉</span>
+          <span>统计分析</span>
+        </button>
+        <button class="nav-item" data-page="accounts">
+          <span class="nav-icon">🏦</span>
+          <span>账户总览</span>
+        </button>
+        <button class="nav-item" data-page="investment">
+          <span class="nav-icon">📈</span>
+          <span>理财损益</span>
+        </button>
+
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn-export" onclick="app.showRateModal()">💱 汇率设置</button>
+        <button class="btn-export" onclick="app.exportExcel()">📊 导出Excel</button>
+        <button class="btn-export" onclick="app.exportData()">📥 导出JSON</button>
+        <button class="btn-import" onclick="document.getElementById('importFile').click()">📤 导入数据</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="app.importData(event)">
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- ====== 总览页 ====== -->
+      <section id="page-dashboard" class="page active">
+        <div class="page-header">
+          <h2>总览</h2>
+        </div>
+        <!-- 境内外总资产 -->
+        <div class="region-summary">
+          <div class="region-item domestic">
+            <span class="region-flag">🇨🇳</span>
+            <span class="region-label">境内总资产</span>
+            <span class="region-amount" id="domesticAssets">¥0.00</span>
+          </div>
+          <div class="region-item overseas">
+            <span class="region-flag">🌏</span>
+            <span class="region-label">境外总资产</span>
+            <span class="region-amount" id="overseasAssets">¥0.00</span>
+            <span class="region-sub" id="overseasAssetsUSD"></span>
+          </div>
+          <div class="region-item total-region">
+            <span class="region-flag">💰</span>
+            <span class="region-label">总资产合计</span>
+            <span class="region-amount" id="totalAssetsAll">¥0.00</span>
+          </div>
+        </div>
+        <!-- 负债与净资产 -->
+        <div class="region-summary debt-net-row">
+          <div class="region-item debt-item">
+            <span class="region-flag">📉</span>
+            <span class="region-label">总负债</span>
+            <span class="region-amount debt-amount" id="totalDebt">¥0.00</span>
+            <button class="btn-edit-debt" onclick="app.showDebtModal()" title="编辑负债">✏️</button>
+          </div>
+          <div class="region-item net-worth-item">
+            <span class="region-flag">🏆</span>
+            <span class="region-label">净资产</span>
+            <span class="region-amount" id="netWorth">¥0.00</span>
+          </div>
+        </div>
+
+        <div class="dashboard-charts">
+          <div class="chart-container full-width">
+            <h3>年度资产增幅</h3>
+            <canvas id="yearlyAssetsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="recent-records">
+          <h3>最近记录</h3>
+          <div id="recentList" class="record-list"></div>
+        </div>
+      </section>
+
+      <!-- ====== 记一笔 ====== -->
+      <section id="page-add" class="page">
+        <div class="page-header">
+          <h2 id="addPageTitle">记一笔</h2>
+        </div>
+        <div class="add-form">
+          <div class="type-toggle">
+            <button class="type-btn active" data-type="expense" onclick="app.setType('expense')">支出</button>
+            <button class="type-btn" data-type="income" onclick="app.setType('income')">收入</button>
+          </div>
+
+          <!-- 地区 & 币种 -->
+          <div class="form-row">
+            <div class="form-group half">
+              <label>地区</label>
+              <select id="regionSelect"></select>
+            </div>
+            <div class="form-group half">
+              <label>币种</label>
+              <select id="currencySelect"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>金额</label>
+            <div class="amount-input">
+              <span class="currency" id="currencySymbol">¥</span>
+              <input type="number" id="amount" placeholder="0.00" step="0.01" min="0">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>分类</label>
+            <div id="categorySelect" class="category-grid"></div>
+          </div>
+
+          <!-- 日期 & 账户 -->
+          <div class="form-row">
+            <div class="form-group half">
+              <label>日期</label>
+              <input type="date" id="recordDate">
+            </div>
+            <div class="form-group half">
+              <label>账户</label>
+              <select id="accountSelect"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>备注</label>
+            <input type="text" id="remark" placeholder="添加备注...">
+          </div>
+          <input type="hidden" id="editId" value="">
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="app.saveRecord()">保存</button>
+            <button class="btn btn-secondary" onclick="app.resetForm()">重置</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== 账单明细 ====== -->
+      <section id="page-list" class="page">
+        <div class="page-header">
+          <h2>账单明细</h2>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-row-top">
+            <select id="filterType" onchange="app.filterRecords()">
+              <option value="all">全部类型</option>
+              <option value="income">收入</option>
+              <option value="expense">支出</option>
+            </select>
+            <select id="filterCategory" onchange="app.filterRecords()">
+              <option value="all">全部分类</option>
+            </select>
+            <select id="filterRegion" onchange="app.filterRecords()">
+              <option value="all">全部地区</option>
+              <option value="domestic">🇨🇳 境内</option>
+              <option value="overseas">🌏 境外</option>
+            </select>
+            <input type="text" id="filterKeyword" placeholder="搜索..." oninput="app.filterRecords()">
+          </div>
+          <div class="filter-row-date">
+            <div class="filter-dates">
+              <label>起始</label>
+              <input type="date" id="filterDateFrom" onchange="app.filterRecords()">
+              <label>截止</label>
+              <input type="date" id="filterDateTo" onchange="app.filterRecords()">
+            </div>
+            <div class="filter-shortcuts">
+              <button class="shortcut-btn" onclick="app.setListDateRange('all')">全部</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('thisMonth')">本月</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('lastMonth')">上月</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('thisYear')">本年</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('lastYear')">去年</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('2023')">2023</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('2024')">2024</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('2025')">2025</button>
+              <button class="shortcut-btn" onclick="app.setListDateRange('2026')">2026</button>
+            </div>
+          </div>
+        </div>
+        <div id="recordsList" class="record-list full-list"></div>
+        <div id="listPagination" class="list-pagination"></div>
+        <div id="listSummary" class="list-summary"></div>
+      </section>
+
+      <!-- ====== 统计分析 ====== -->
+      <section id="page-stats" class="page">
+        <div class="page-header">
+          <h2>统计分析</h2>
+          <div class="stats-period">
+            <select id="statsPeriod" onchange="app.updateStats()">
+              <option value="all" selected>全部</option>
+              <option value="year">本年</option>
+              <option value="quarter">本季度</option>
+              <option value="month">本月</option>
+            </select>
+          </div>
+        </div>
+        <div class="stats-overview">
+          <div class="stat-item">
+            <span class="stat-label">总收入</span>
+            <span class="stat-value income" id="statIncome">¥0.00</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">总支出</span>
+            <span class="stat-value expense" id="statExpense">¥0.00</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">净结余</span>
+            <span class="stat-value" id="statBalance">¥0.00</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">日均支出</span>
+            <span class="stat-value" id="statDailyAvg">¥0.00</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">🇨🇳 境内支出</span>
+            <span class="stat-value expense" id="statDomestic">¥0.00</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">🌏 境外支出</span>
+            <span class="stat-value expense" id="statOverseas">¥0.00</span>
+          </div>
+        </div>
+        <div class="stats-charts">
+          <div class="chart-container large">
+            <h3>年度总收支对比</h3>
+            <canvas id="annualCompareChart"></canvas>
+          </div>
+          <div class="pie-section">
+            <div class="pie-section-header">
+              <h3>收支分类占比</h3>
+              <select id="piePeriod" onchange="app.updatePieCharts()">
+                <option value="all" selected>全部</option>
+              </select>
+            </div>
+            <div class="pie-side-by-side">
+              <div class="chart-container pie-half">
+                <h3>支出分类占比</h3>
+                <canvas id="expensePieChart"></canvas>
+              </div>
+              <div class="chart-container pie-half">
+                <h3>收入分类占比</h3>
+                <canvas id="incomePieChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div id="annualCategoryDetail"></div>
+          <div class="chart-container">
+            <h3>境内外收支对比</h3>
+            <canvas id="regionChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== 账户总览 ====== -->
+      <section id="page-accounts" class="page">
+        <div class="page-header">
+          <h2>账户总览</h2>
+        </div>
+        <div id="accountsList" class="accounts-grid"></div>
+      </section>
+
+      <!-- 账户余额编辑弹窗 -->
+      <div id="accountBalanceModal" class="modal" style="display:none">
+        <div class="modal-content">
+          <h3 id="accBalModalTitle">编辑账户余额</h3>
+          <div class="form-group">
+            <label>当前余额</label>
+            <div class="amount-input">
+              <span class="currency" id="accBalCurrencySymbol">¥</span>
+              <input type="number" id="accBalAmount" placeholder="0.00" step="0.01">
+            </div>
+          </div>
+          <input type="hidden" id="accBalAccountId" value="">
+          <div class="modal-actions">
+            <button class="btn btn-primary" onclick="app.saveAccountBalance()">保存</button>
+            <button class="btn btn-secondary" onclick="app.closeAccountBalanceModal()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== 理财损益管理 ====== -->
+      <section id="page-investment" class="page">
+        <div class="page-header">
+          <h2>理财损益管理</h2>
+          <button class="btn btn-primary btn-sm" onclick="app.showAddInvestment()">+ 添加记录</button>
+        </div>
+        <div id="investmentContent"></div>
+      </section>
+
+      <!-- 理财损益弹窗 -->
+      <div id="investmentModal" class="modal" style="display:none">
+        <div class="modal-content modal-wide">
+          <h3 id="invModalTitle">添加理财损益</h3>
+          <div class="form-row">
+            <div class="form-group half">
+              <label>年份</label>
+              <input type="number" id="invYear" min="2020" max="2030" value="2026">
+            </div>
+            <div class="form-group half">
+              <label>月份</label>
+              <select id="invMonth">
+                <option value="0">全年汇总</option>
+                <option value="1">1月</option>
+                <option value="2">2月</option>
+                <option value="3">3月</option>
+                <option value="4">4月</option>
+                <option value="5">5月</option>
+                <option value="6">6月</option>
+                <option value="7">7月</option>
+                <option value="8">8月</option>
+                <option value="9">9月</option>
+                <option value="10">10月</option>
+                <option value="11">11月</option>
+                <option value="12">12月</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group half">
+              <label>币种</label>
+              <select id="invType">
+                <option value="CNY">¥ 人民币</option>
+                <option value="USD">$ 美元</option>
+              </select>
+            </div>
+            <div class="form-group half">
+              <label>损益金额</label>
+              <input type="number" id="invAmount" step="0.01" placeholder="正数=收益，负数=亏损">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>产品名称</label>
+            <input type="text" id="invName" placeholder="如：好买基金、交行信托、朝朝盈2号...">
+          </div>
+          <div class="form-group">
+            <label>平台</label>
+            <input type="text" id="invPlatform" placeholder="如：好买基金、招商银行、交通银行、渣打银行...">
+          </div>
+          <div class="form-group">
+            <label>备注</label>
+            <input type="text" id="invRemark" placeholder="可选备注...">
+          </div>
+          <input type="hidden" id="editInvId" value="">
+          <div class="modal-actions">
+            <button class="btn btn-primary" onclick="app.saveInvestment()">保存</button>
+            <button class="btn btn-secondary" onclick="app.closeInvestmentModal()">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 负债编辑弹窗 -->
+      <div id="debtModal" class="modal" style="display:none">
+        <div class="modal-content modal-wide">
+          <h3>📉 编辑负债</h3>
+          <p class="modal-desc">填写各项负债金额，系统将自动汇总计算总负债</p>
+          <div id="debtItemsList"></div>
+          <div class="debt-add-row">
+            <button class="btn btn-secondary btn-sm" onclick="app.addDebtItem()">+ 添加负债项</button>
+          </div>
+          <div class="debt-total-row">
+            <span>总负债合计：</span>
+            <span class="debt-total-value" id="debtModalTotal">¥0.00</span>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" onclick="app.saveDebt()">保存</button>
+            <button class="btn btn-secondary" onclick="app.closeDebtModal()">取消</button>
+          </div>
+        </div>
+      </div>
+
+
+    </main>
+  </div>
+
+  <!-- 汇率设置弹窗 -->
+  <div id="rateModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3>💱 汇率设置</h3>
+      <p class="modal-desc">设置外币兑人民币汇率，用于统计折算</p>
+      <div class="rate-auto-section">
+        <button class="btn btn-primary btn-sm" onclick="app.fetchLiveRates()" id="fetchRateBtn">🔄 自动获取当日汇率</button>
+        <span id="rateStatus" class="rate-status"></span>
+      </div>
+      <div class="form-group">
+        <label>USD/CNY（美元兑人民币）</label>
+        <input type="number" id="rateUSD" step="0.0001" value="7.2526">
+      </div>
+      <div class="form-group">
+        <label>HKD/CNY（港币兑人民币）</label>
+        <input type="number" id="rateHKD" step="0.0001" value="0.9295">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="app.saveRates()">保存</button>
+        <button class="btn btn-secondary" onclick="app.closeRateModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认删除弹窗 -->
+  <!-- 添加分类弹窗 -->
+  <div id="addCategoryModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3>添加<span id="addCategoryType">支出</span>分类</h3>
+      <div class="form-group">
+        <label>图标（Emoji）</label>
+        <input type="text" id="newCategoryIcon" value="📌" maxlength="4" class="emoji-input">
+      </div>
+      <div class="form-group">
+        <label>分类名称</label>
+        <input type="text" id="newCategoryName" placeholder="输入分类名称" maxlength="10">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="app.saveNewCategory()">保存</button>
+        <button class="btn btn-secondary" onclick="app.closeAddCategoryModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3>确认删除</h3>
+      <p id="confirmMsg">确定要删除这条记录吗？</p>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="confirmBtn">删除</button>
+        <button class="btn btn-secondary" onclick="app.closeConfirm()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // 强制清除旧缓存数据，确保使用最新代码中的数据
+    var _iv = 'v20260312e2';
+    if (localStorage.getItem('fl_inv_ver') !== _iv) {
+      localStorage.removeItem('fl_investments');
+      localStorage.removeItem('fl_records');
+      localStorage.removeItem('fl_custom_categories');
+      localStorage.setItem('fl_inv_ver', _iv);
+    }
+  </script>
+  <script src="app.js?v=20260312j"></script>
+</body>
+</html>
