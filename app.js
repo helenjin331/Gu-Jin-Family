@@ -83,6 +83,18 @@ class FamilyLedger {
 
 
   initSampleData() {
+    // 优先从 localStorage 读取，有数据则跳过初始化
+    try {
+      const savedRecords = JSON.parse(localStorage.getItem('fl_records'));
+      const savedInvestments = JSON.parse(localStorage.getItem('fl_investments'));
+      if (savedRecords && savedRecords.length > 0) {
+        this.records = savedRecords;
+        this.investmentData = savedInvestments || [];
+        return; // 已有保存数据，不用初始化
+      }
+    } catch {}
+
+    // 首次使用，加载初始数据
     this.records = [
       {"id": "data_0001", "type": "income", "amount": 2560000.0, "category": "salary", "date": "2023-06-15", "remark": "2022年终奖", "currency": "CNY", "region": "domestic", "account": "bocom", "createdAt": "2023-06-15T08:00:00Z"},
       {"id": "data_0002", "type": "expense", "amount": 150000.0, "category": "living", "date": "2023-06-15", "remark": "23年旅游（欧洲）", "currency": "CNY", "region": "domestic", "account": "bocom", "createdAt": "2023-06-15T08:00:00Z"},
@@ -314,7 +326,6 @@ class FamilyLedger {
       // 2026年 - 境外
       { id: 'inv_017', year: 2026, month: 0, type: 'USD', name: '好买USD', amount: 19181.52, platform: '好买基金(USD)', remark: '' },
     ];
-    localStorage.setItem('fl_investments', JSON.stringify(this.investmentData));
 
     this.saveData();
   }
@@ -349,7 +360,6 @@ class FamilyLedger {
   // ---- 数据存储 ----
   loadData() {
     try {
-      // investmentData 直接从 initSampleData 加载，不再从 localStorage 读取
       this.debtItems = JSON.parse(localStorage.getItem('fl_debts')) || [];
       this.accountBalances = JSON.parse(localStorage.getItem('fl_account_balances')) || {};
     } catch {
@@ -359,6 +369,7 @@ class FamilyLedger {
   }
 
   saveData() {
+    localStorage.setItem('fl_records', JSON.stringify(this.records));
     localStorage.setItem('fl_investments', JSON.stringify(this.investmentData));
     localStorage.setItem('fl_debts', JSON.stringify(this.debtItems));
     localStorage.setItem('fl_account_balances', JSON.stringify(this.accountBalances));
