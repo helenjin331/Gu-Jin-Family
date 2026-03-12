@@ -83,19 +83,29 @@ class FamilyLedger {
 
 
   initSampleData() {
-    // 优先从 localStorage 读取，有数据则跳过初始化
+    // 分别检查 localStorage 中是否有保存的数据
+    let hasLocalRecords = false;
+    let hasLocalInvestments = false;
     try {
       const savedRecords = JSON.parse(localStorage.getItem('fl_records'));
-      const savedInvestments = JSON.parse(localStorage.getItem('fl_investments'));
       if (savedRecords && savedRecords.length > 0) {
         this.records = savedRecords;
-        this.investmentData = savedInvestments || [];
-        return; // 已有保存数据，不用初始化
+        hasLocalRecords = true;
+      }
+    } catch {}
+    try {
+      const savedInvestments = JSON.parse(localStorage.getItem('fl_investments'));
+      if (savedInvestments && savedInvestments.length > 0) {
+        this.investmentData = savedInvestments;
+        hasLocalInvestments = true;
       }
     } catch {}
 
-    // 首次使用，加载初始数据
-    this.records = [
+    // 如果 records 和 investments 都已从 localStorage 恢复，跳过初始化
+    if (hasLocalRecords && hasLocalInvestments) return;
+
+    // 首次使用或部分数据缺失，加载缺失的初始数据
+    if (!hasLocalRecords) this.records = [
       {"id": "data_0001", "type": "income", "amount": 2560000.0, "category": "salary", "date": "2023-06-15", "remark": "2022年终奖", "currency": "CNY", "region": "domestic", "account": "bocom", "createdAt": "2023-06-15T08:00:00Z"},
       {"id": "data_0002", "type": "expense", "amount": 150000.0, "category": "living", "date": "2023-06-15", "remark": "23年旅游（欧洲）", "currency": "CNY", "region": "domestic", "account": "bocom", "createdAt": "2023-06-15T08:00:00Z"},
       {"id": "data_0003", "type": "expense", "amount": 220000.0, "category": "living", "date": "2023-06-15", "remark": "23年小猫礼物（buccellati）", "currency": "CNY", "region": "domestic", "account": "bocom", "createdAt": "2023-06-15T08:00:00Z"},
@@ -299,9 +309,10 @@ class FamilyLedger {
       {"id": "data_0201", "type": "expense", "amount": 47.59, "category": "bank_fee", "date": "2026-03-05", "remark": "Charges（好买transfer）", "currency": "USD", "region": "overseas", "account": "sc_bank", "createdAt": "2026-03-05T08:00:00Z"},
       {"id": "data_0202", "type": "income", "amount": 100000.0, "category": "gift_income", "date": "2026-03-10", "remark": "童宝生日 爷爷奶奶生日礼物", "currency": "CNY", "region": "domestic", "account": "bocom", "createdAt": "2026-03-10T08:00:00Z"}
     ];
+    }
 
     // 初始化投资理财损益数据（含2023-2026全部历史数据）
-    this.investmentData = [
+    if (!hasLocalInvestments) this.investmentData = [
       // 2023年 - 境内
       { id: 'inv_001', year: 2023, month: 0, type: 'CNY', name: '季季宝', amount: 4027.50, platform: '招商银行', remark: '理财利息' },
       { id: 'inv_002', year: 2023, month: 0, type: 'CNY', name: '半年宝', amount: 4143.52, platform: '招商银行', remark: '理财利息' },
@@ -326,6 +337,7 @@ class FamilyLedger {
       // 2026年 - 境外
       { id: 'inv_017', year: 2026, month: 0, type: 'USD', name: '好买USD', amount: 19181.52, platform: '好买基金(USD)', remark: '' },
     ];
+    }
 
     this.saveData();
   }
